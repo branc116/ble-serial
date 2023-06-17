@@ -1,9 +1,9 @@
-from bleak import BleakClient, BleakScanner
-from bleak.backends.characteristic import BleakGATTCharacteristic
-from bleak.exc import BleakError
+from ble_serial.bleak import BleakClient, BleakScanner
+from ble_serial.bleak.backends.characteristic import BleakGATTCharacteristic
+from ble_serial.bleak.exc import BleakError
 from ble_serial.bluetooth.constants import ble_chars
 import logging, asyncio
-from typing import Optional
+from typing import List, Optional, Union
 
 class BLE_interface():
     def __init__(self, adapter: str, service: str):
@@ -31,7 +31,7 @@ class BLE_interface():
         await self.dev.connect()
         logging.info(f'Device {self.dev.address} connected')
 
-    async def setup_chars(self, write_uuid: str, read_uuid: str, mode: str):
+    async def setup_chars(self, write_uuid: str, read_uuid: Optional[Union[List[str], str]], mode: str):
         self.read_enabled = 'r' in mode
         self.write_enabled = 'w' in mode
 
@@ -42,16 +42,20 @@ class BLE_interface():
         
         if self.read_enabled:
             self.read_char = self.find_char(read_uuid, ['notify', 'indicate'])
-            await self.dev.start_notify(self.read_char, self.handle_notify)
+            r = [asyncio.Task(self.dev.start_notify(r, self.handle_notify)) for r in self.read_char]
+            await asyncio.wait(r)
         else:
             logging.info('Reading disabled, skipping read UUID detection')
 
-    def find_char(self, uuid: Optional[str], req_props: [str]) -> BleakGATTCharacteristic:
+    def find_char(self, uuid: Optional[Union[List[str], str]], req_props: List[str]) -> list[BleakGATTCharacteristic]:
         name = req_props[0]
 
         # Use user supplied UUID first, otherwise try included list
         if uuid:
-            uuid_candidates = [uuid]
+            if isinstance(uuid, str):
+                uuid_candidates = [uuid]
+            else:
+                uuid_candidates = uuid
         else:
             uuid_candidates = ble_chars
             logging.debug(f'No {name} uuid specified, trying builtin list')
@@ -59,8 +63,7 @@ class BLE_interface():
         results = []
         for srv in self.dev.services:
             for c in srv.characteristics:
-                if c.uuid in uuid_candidates:
-                    results.append(c)
+                results.append(c)
 
         if uuid:
             assert len(results) > 0, \
@@ -71,20 +74,17 @@ class BLE_interface():
                     Please specify one with {'-w/--write-uuid' if name == 'write' else '-r/--read-uuid'}, see also --help"""
 
         res_str = '\n'.join(f'\t{c} {c.properties}' for c in results)
-        logging.debug(f'Characteristic candidates for {name}: \n{res_str}')
+        logging.info(f'Characteristic candidates for {name}: \n{res_str}')
 
         # Check if there is a intersection of permission flags
         results[:] = [c for c in results if set(c.properties) & set(req_props)]
 
-        assert len(results) > 0, \
-            f"No characteristic with {req_props} property found!"
-
-        assert len(results) == 1, \
-            f'Multiple matching {name} characteristics found, please specify one'
+#        assert len(results) > 0, \
+#            f"No characteristic with {req_props} property found!"
 
         # must be valid here
-        found = results[0]
-        logging.info(f'Found {name} characteristic {found.uuid} (H. {found.handle})')
+        found = results
+        #logging.info(f'Found {name} characteristic {found.uuid} (H. {found.handle})')
         return found
 
     def set_receiver(self, callback):
@@ -116,8 +116,7 @@ class BLE_interface():
 
     def queue_send(self, data: bytes):
         self._send_queue.put_nowait(data)
-
-    def handle_notify(self, handle: int, data: bytes):
+    def handle_notify(self, handle: BleakGATTCharacteristic, data: bytearray):
         logging.debug(f'Received notify from {handle}: {data}')
         if not self.read_enabled:
             logging.warning(f'Read unexpected data, dropping: {data}')
