@@ -121,7 +121,7 @@ class BLE_interface():
         if not self.read_enabled:
             logging.warning(f'Read unexpected data, dropping: {data}')
             return
-        self._cb(data)
+        self._cb(handle, data)
 
     def handle_disconnect(self, client: BleakClient):
         logging.warning(f'Device {client.address} disconnected')
