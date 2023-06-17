@@ -1,30 +1,33 @@
 from array import array
 import asyncio, logging
+import enum
 from threading import Thread
-
+from typing import Dict, Optional, Tuple, Union
+from ble_serial.bleak.backends.characteristic import BleakGATTCharacteristic
 from ble_serial.bluetooth.ble_interface import BLE_interface
 import socket
+from .parser import DBParser
 
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 client_socket.settimeout(1.0)
 addr = ("localhost", 42069)
+p = DBParser()
 
 def start_plotter():
     import os
     #os.system("cd t-c-plotter && bin/plotter")
     os.system("cd raylib-plotter && ./bin/rlplot")
 
-#Thread(target=start_plotter).start()
+Thread(target=start_plotter).start()
 
-def receive_callback(value: bytes):
-    b = array("h")
-    b.frombytes(value)
-    bs = b.tolist()
-    for i, b in enumerate(bs):
-        if b != 0:
-            logging.info(f"Sending: {b};{i}")
-            client_socket.sendto(f"{b};{i}".encode(), addr)
+def receive_callback(handle: BleakGATTCharacteristic, value: bytes):
     print("Received:", value)
+    p.add_data(handle.handle, value)
+    d = p.pop_data()
+    while d != None:
+        print(d)
+        client_socket.sendto(f"{d[1]};{d[0]}".encode(), addr)
+        d = p.pop_data()
 
 async def hello_sender(ble: BLE_interface):
     while True:
@@ -54,5 +57,5 @@ async def main():
         await ble.disconnect()
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.NOTSET)
+    logging.basicConfig(level=logging.ERROR)
     asyncio.run(main())
