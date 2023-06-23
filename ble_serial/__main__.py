@@ -16,7 +16,7 @@ p = DBParser()
 def start_plotter():
     import os
     #os.system("cd t-c-plotter && bin/plotter")
-    os.system("cd raylib-plotter && ./bin/rlplot")
+    os.system("cd ../raylib-plotter && ./bin/rlplot")
 
 Thread(target=start_plotter).start()
 
@@ -36,13 +36,11 @@ async def hello_sender(ble: BLE_interface):
         ble.queue_send(b"Hello world\n")
 
 async def main():
-    # None uses default/autodetection, insert values if needed
     READ_UUID = ['00009a66-0000-1000-8000-00805f9b34fb']
 
     ADAPTER = "hci0"
     SERVICE_UUID = None
     WRITE_UUID = 'D973F2E1-B19E-11E2-9E96-0800200C9A66'
-    #READ_UUID = 'D973F2E0-B19E-11E2-9E96-0800200C9A66'
     DEVICE = "02:80:E1:00:00:AA"
 
     ble = BLE_interface(ADAPTER, SERVICE_UUID)
