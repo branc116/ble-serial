@@ -1,8 +1,5 @@
-from array import array
 import asyncio, logging
-import enum
 from threading import Thread
-from typing import Dict, Optional, Tuple, Union
 from ble_serial.bleak.backends.characteristic import BleakGATTCharacteristic
 from ble_serial.bluetooth.ble_interface import BLE_interface
 import socket
@@ -15,8 +12,7 @@ p = DBParser()
 
 def start_plotter():
     import os
-    #os.system("cd t-c-plotter && bin/plotter")
-    os.system("cd ../raylib-plotter && ./bin/rlplot")
+    os.system("rlplot")
 
 Thread(target=start_plotter).start()
 
