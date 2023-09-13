@@ -7,14 +7,8 @@ from .parser import DBParser
 
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 client_socket.settimeout(1.0)
-addr = ("localhost", 42069)
+addr = ("127.0.0.1", 42069)
 p = DBParser()
-
-def start_plotter():
-    import os
-    os.system("rlplot")
-
-Thread(target=start_plotter).start()
 
 def receive_callback(handle: BleakGATTCharacteristic, value: bytes):
     print("Received:", value)
@@ -22,8 +16,10 @@ def receive_callback(handle: BleakGATTCharacteristic, value: bytes):
     d = p.pop_data()
     while d != None:
         print(d)
-        client_socket.sendto(f"{d[1]};{d[0]}".encode(), addr)
+        client_socket.sendto(f"{d[1]};{d[0]} ".encode(), addr)
         d = p.pop_data()
+
+# nc -ulkp 42069 | rlplot
 
 async def hello_sender(ble: BLE_interface):
     while True:
