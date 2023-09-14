@@ -9,6 +9,7 @@ client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 client_socket.settimeout(1.0)
 addr = ("127.0.0.1", 42069)
 p = DBParser()
+f = open("out.csv", "w+")
 
 def receive_callback(handle: BleakGATTCharacteristic, value: bytes):
     print("Received:", value)
@@ -16,8 +17,12 @@ def receive_callback(handle: BleakGATTCharacteristic, value: bytes):
     d = p.pop_data()
     while d != None:
         print(d)
+        f.write(f"{d[1]},")
         client_socket.sendto(f"{d[1]};{d[0]} ".encode(), addr)
         d = p.pop_data()
+    f.write(f"\n")
+    f.flush()
+
 
 # nc -ulkp 42069 | rlplot
 
@@ -28,24 +33,43 @@ async def hello_sender(ble: BLE_interface):
         ble.queue_send(b"Hello world\n")
 
 async def main():
-    READ_UUID = ['00009a66-0000-1000-8000-00805f9b34fb']
+    try:
+        READ_UUID = ['00009a66-0000-1000-8000-00805f9b34fb']
 
-    ADAPTER = "hci0"
-    SERVICE_UUID = None
-    WRITE_UUID = 'D973F2E1-B19E-11E2-9E96-0800200C9A66'
-    DEVICE = "02:80:E1:00:00:AA"
+        ADAPTER = "hci0"
+        SERVICE_UUID = None
+        WRITE_UUID = 'D973F2E1-B19E-11E2-9E96-0800200C9A66'
+        DEVICE = "02:80:E1:00:00:AA"
 
-    ble = BLE_interface(ADAPTER, SERVICE_UUID)
-    ble.set_receiver(receive_callback)
+        ble = BLE_interface(ADAPTER, SERVICE_UUID)
+        ble.set_receiver(receive_callback)
+
+        await ble.disconnect();
+    except BaseException:
+        print("E2!\n")
+        return
+    finally:
+        pass
 
     try:
         await ble.connect(DEVICE, "public", 16.0)
         await ble.setup_chars(WRITE_UUID, READ_UUID, "r")
-
         await ble.send_loop()
+    except asyncio.exceptions.CancelledError:
+        await ble.disconnect()
+        print("asio EXITING!\n")
+        print("asio EXITING!\n")
+        print("asio EXITING!\n")
+        print("asio EXITING!\n")
+        exit(-1)
+    except BaseException as be:
+        print(f"{type(be)} E1!\n")
+        logging.error(str(be))
     finally:
         await ble.disconnect()
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.ERROR)
-    asyncio.run(main())
+    while True:
+        logging.basicConfig(level=logging.INFO)
+        asyncio.run(main())
+
